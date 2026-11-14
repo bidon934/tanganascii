@@ -40,7 +40,7 @@ button.on{background:var(--g);color:var(--ink)}
 <header><b>TANGAN.exe</b><span class="mid">TINGKAT AKSES: OMEGA / HANYA INTERNAL</span><span><i id="dot"></i><span id="st">SIAP</span></span></header>
 <div class="ctl"><button id="tSkel" class="on">Sendi</button><button id="tCam" class="on">Kamera</button><button id="tDemo">Demo</button><button id="tFs">Layar penuh</button></div>
 <div id="crt"><div class="bar"><span>■ KAMERA / FEED-01</span><span id="crtSt">NO SIGNAL</span></div>
-<div class="scr"><video id="v" playsinline muted></video><canvas id="gl"></canvas></div>
+<div class="scr"><video id="v" playsinline muted></video><canvas id="gl"></canvas><canvas id="ov"></canvas></div>
 <div class="bar"><span>LOC. SIGNAL HARMONICS</span><span>● LIVE</span></div></div>
 <div id="start"><div class="card"><h1>TANGAN ASCII</h1>
 <p>Arahkan tangan ke kamera. Satu tangan muncul satu, dua tangan muncul dua, tersusun dari huruf yang bergerak mengikuti sendi jarimu.</p>
@@ -118,7 +118,7 @@ try{gl=glc.getContext('webgl',{antialias:false});if(!gl)throw 0;
  gl.attachShader(pr,sh(gl.VERTEX_SHADER,'attribute vec2 a;varying vec2 uv;void main(){uv=a*.5+.5;gl_Position=vec4(a,0.,1.);}'));
  gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,`precision mediump float;varying vec2 uv;uniform sampler2D tx;uniform float t,has,ar;uniform vec2 rs;
  float hh(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
- void main(){vec2 p=uv*2.-1.;float r2=dot(p,p);vec2 d=p*(1.+.30*r2+.10*r2*r2)*.8;
+ void main(){vec2 p=uv*2.-1.;float r2=dot(p,p);vec2 d=p;
   float ins=step(abs(d.x),1.)*step(abs(d.y),1.);vec2 q=d*.5+.5;
   q.x=(q.x-.5)*min(1.,ar)+.5;q.y=(q.y-.5)*min(1.,1./ar)+.5;q.x=1.-q.x;
   float g=dot(texture2D(tx,q).rgb,vec3(.3,.59,.11));g=clamp((g-.06)*1.5,0.,1.);
@@ -146,6 +146,18 @@ function renderCRT(t){
  gl.uniform1f(U.t,t%100);gl.uniform1f(U.has,hasVid);gl.uniform1f(U.ar,(4/3)/(ok?v.videoWidth/v.videoHeight:16/9));gl.uniform2f(U.rs,glc.width,glc.height);gl.uniform1i(U.tx,0);
  gl.drawArrays(gl.TRIANGLE_STRIP,0,4)}
 
+const ovc=$('#ov'),ovx=ovc.getContext('2d');
+function renderOv(){
+ if(!crtOn)return;const pw=ovc.clientWidth,ph=ovc.clientHeight;if(!pw)return;
+ const k=Math.min(DPR,2);if(ovc.width!==Math.round(pw*k)){ovc.width=Math.round(pw*k);ovc.height=Math.round(ph*k)}
+ ovx.setTransform(k,0,0,k,0,0);ovx.clearRect(0,0,pw,ph);
+ const vw=v.videoWidth,vh=v.videoHeight;if(demo||!ready||!vw)return;
+ const s1=Math.max(W/vw,H/vh),o1x=(vw*s1-W)/2,o1y=(vh*s1-H)/2,s2=Math.max(pw/vw,ph/vh),o2x=(vw*s2-pw)/2,o2y=(vh*s2-ph)/2;
+ slots.forEach(s=>{if(!s||s.a<.05)return;
+  const P=s.lm.map(q=>{const nx=(W-q.x+o1x)/(vw*s1),ny=(q.y+o1y)/(vh*s1);return{x:pw-(nx*vw*s2-o2x),y:ny*vh*s2-o2y}});
+  ovx.globalAlpha=s.a;ovx.strokeStyle='#49e0b4';ovx.lineWidth=1.5;ovx.beginPath();BONES.forEach(([a,b])=>{ovx.moveTo(P[a].x,P[a].y);ovx.lineTo(P[b].x,P[b].y)});ovx.stroke();
+  P.forEach((q,i)=>{const tip=i&&i%4===0;ovx.beginPath();ovx.arc(q.x,q.y,tip?3.5:2.5,0,6.283);ovx.fillStyle=tip?'#fff':'#c8ffe9';ovx.fill()})});
+ ovx.globalAlpha=1}
 function setSt(x,live){$('#st').textContent=x;$('#dot').classList.toggle('live',!!live)}
 function frame(now){
  const dt=Math.min(.05,(now-last)/1000),t=now/1000;last=now;
@@ -156,7 +168,7 @@ function frame(now){
   s.a=Math.max(0,Math.min(1,s.a+(seen?dt*7:-dt*5)));
   for(let i=0;i<21;i++){const c=s.lm[i],tg=s.t[i],dd=Math.hypot(tg.x-c.x,tg.y-c.y),k=1-Math.exp(-dt*Math.min(60,14+dd*.25));c.x+=(tg.x-c.x)*k;c.y+=(tg.y-c.y)*k}
   if(s.a<=0&&!seen)slots[si]=null});
- render(t);renderCRT(t);
+ render(t);renderCRT(t);renderOv();
  if(n!==lastN&&(ready||demo)){lastN=n;setSt((demo?'DEMO · ':'')+(n?n+' TANGAN':'MENCARI TANGAN…'),n>0);$('#crtSt').textContent=demo?'NO SIGNAL':'SIGNAL OK'}
  requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
